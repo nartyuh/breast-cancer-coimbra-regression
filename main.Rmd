@@ -3,12 +3,12 @@ title: "Analyzing and Fitting Breast Cancer Coimbra Data Set"
 author: "Andrew Tran, Edward Wang"
 date: "`r Sys.Date()`"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 # Loading the Necessary Packages:
 library(dplyr)
 library(tidyverse)
@@ -255,7 +255,7 @@ vif(model2)
 
 ## Variables selection
 
-###. Insulin v. HOMA and Glucose v. HOMA are collinear
+### Insulin & HOMA and Glucose & HOMA are collinear
 
 Insulin & HOMA pair and Glucose & HOMA pair  have very high correlations. This information suggests collinearity in these two pairs. In reality, this is true. HOMA is a method used to quantify Insulin resistance and beta-cell function. In this sense, HOMA is a direct function of Glucose and Insulin (source: https://en.wikipedia.org/wiki/Homeostatic_model_assessment). Thus, we can disregard HOMA when fitting the data.
 
