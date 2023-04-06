@@ -1,0 +1,464 @@
+---
+title: "Analyzing and Fitting Breast Cancer Coimbra Data Set"
+author: "Andrew Tran, Edward Wang"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Loading the Necessary Packages:
+library(dplyr)
+library(tidyverse)
+library(GGally)
+library(car)
+library(bestglm)
+library(caret)
+library(pROC)
+library(leaps)
+library(glmulti)
+```
+
+# Load and transform the data
+
+```{r, echo=TRUE}
+# Read data from csv file 
+bccdat <- read.csv("breast-cancer-coimbra-data-set.csv")
+
+# Transforming the Response Variable to Conform with the LR: Healthy = 0, Patients = 1
+bccdat$Classification <- bccdat$Classification - 1
+
+# Splitting the data into training & testing set: 80% to train, 20% to test
+set.seed(1046)
+train_data <- slice_sample(bccdat, prop = 0.8)
+test_data <- anti_join(bccdat, train_data)
+```
+
+# Summary statistics of the training data
+
+```{r, echo=TRUE}
+attach(train_data)  # using summary(variable_name), sd(variable_name) to obtain the needed Statistics
+```
+
+## Graphing of explanatory variables:
+
+### Age
+
+```{r, echo=TRUE}
+hist <- hist(Age, main="histogram of Age", plot=FALSE)
+multiplier <- hist$counts / hist$density
+density <- density(Age)
+density$y <- density$y * multiplier[1]
+par(mfrow=c(1,2))
+plot(hist, xlab = "Age (years)")
+lines(density)
+boxplot(Age, main="Boxplot of Age")
+```
+
+### BMI
+
+```{r, echo=TRUE}
+hist <- hist(BMI, main="histogram of BMI", plot=FALSE)
+multiplier <- hist$counts / hist$density
+density <- density(BMI)
+density$y <- density$y * multiplier[1]
+par(mfrow=c(1,2))
+plot(hist, xlab = "BMI (kg/m2)")
+lines(density)
+boxplot(BMI, main="Boxplot of BMI")
+```
+
+### Glucose
+
+```{r, echo=TRUE}
+hist <- hist(Glucose , main="histogram of Glucose", plot=FALSE)
+multiplier <- hist$counts / hist$density
+density <- density(Glucose )
+density$y <- density$y * multiplier[1]
+par(mfrow=c(1,2))
+plot(hist, xlab = "Glucose (mg/dL)")
+lines(density)
+boxplot(Glucose, main="Boxplot of Glucose")
+```
+
+### Insulin
+
+```{r, echo=TRUE}
+hist <- hist(Insulin , main="histogram of Insulin", plot=FALSE)
+multiplier <- hist$counts / hist$density
+density <- density(Insulin )
+density$y <- density$y * multiplier[1]
+par(mfrow=c(1,2))
+plot(hist, xlab = "Insulin (µU/mL)")
+lines(density)
+boxplot(Insulin, main="Boxplot of Insulin")
+```
+
+### HOMA
+
+```{r, echo=TRUE}
+hist <- hist(HOMA , main="histogram of HOMA", plot=FALSE)
+multiplier <- hist$counts / hist$density
+density <- density(HOMA )
+density$y <- density$y * multiplier[1]
+par(mfrow=c(1,2))
+plot(hist, xlab = "HOMA")
+lines(density)
+boxplot(HOMA, main="Boxplot of HOMA")
+```
+
+### Leptin 
+
+```{r, echo=TRUE}
+hist <- hist(Leptin  , main="histogram of Leptin", plot=FALSE)
+multiplier <- hist$counts / hist$density
+density <- density(Leptin )
+density$y <- density$y * multiplier[1]
+par(mfrow=c(1,2))
+plot(hist, xlab = "Leptin (ng/mL)")
+lines(density)
+boxplot(Leptin, main="Boxplot of Leptin")
+```
+
+### Adiponectin 
+
+```{r, echo=TRUE}
+hist <- hist(Adiponectin, main="histogram of Adiponectin", plot=FALSE)
+multiplier <- hist$counts / hist$density
+density <- density(Adiponectin)
+density$y <- density$y * multiplier[1]
+par(mfrow=c(1,2))
+plot(hist, xlab = "Adiponectin (µg/mL)")
+lines(density)
+boxplot(Adiponectin, main="Boxplot of Adiponectin")
+```
+
+### Resistin  
+
+```{r, echo=TRUE}
+hist <- hist(Resistin, main="histogram of Resistin", plot=FALSE)
+multiplier <- hist$counts / hist$density
+density <- density(Resistin)
+density$y <- density$y * multiplier[1]
+par(mfrow=c(1,2))
+plot(hist, xlab = "Resistin (ng/mL)")
+lines(density)
+boxplot(Resistin, main="Boxplot of Resistin")
+```
+
+### MCP-1  
+
+```{r, echo=TRUE}
+hist <- hist(MCP.1, main="histogram of MCP-1", plot=FALSE)
+multiplier <- hist$counts / hist$density
+density <- density(MCP.1)
+density$y <- density$y * multiplier[1]
+par(mfrow=c(1,2))
+plot(hist, xlab = "MCP-1(pg/dL)")
+lines(density)
+boxplot(MCP.1, main="Boxplot of MCP-1")
+```
+
+## Correlation visualization
+
+```{r, echo=TRUE}
+# Deselect the response variable
+train_expl_data <- train_data[,!names(train_data) %in% c("Classification")]
+```
+
+### Heat map
+
+```{r, echo=TRUE}
+# obtain the Correlation matrix
+cor_mat <- train_expl_data %>%
+           cor() %>%
+           as.data.frame() %>%
+           rownames_to_column("var1") %>%
+           pivot_longer(-var1, names_to = "var2", values_to = "corr")
+# create the heatmap between variables
+plot_corr_matrix <- cor_mat %>%
+  ggplot(aes(x = var1, y = var2)) +
+  geom_tile(aes(fill = corr), color = "white") + 
+  scale_fill_distiller("Correlation Coefficient \n",
+                       palette =  "YlOrRd",
+                       direction = 1, limits = c(-1, 1)
+  ) +
+  labs(x = "", y = "") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(
+      angle = 45, vjust = 1,
+      size = 12, hjust = 1
+    ),
+    axis.text.y = element_text(
+      vjust = 1,
+      size = 12, hjust = 1
+    ),
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 12),
+    legend.key.size = unit(1, "cm")
+  ) +
+  coord_fixed() +
+  geom_text(aes(var1, var2, label = round(corr, 2)), color = "black", size = 4) +
+  ggtitle("Heat Map & Correlation between All Variables")
+
+plot_corr_matrix
+```
+
+### Correlation paired plots
+
+```{r, echo=TRUE}
+pair_plot <- ggpairs(train_expl_data, 
+                     title = "Correlation Paired Plots between Explanatory Variables",
+                     progress=FALSE)
+
+pair_plot
+```
+
+# Model selection
+
+## Worst-case model
+
+```{r, echo=TRUE}
+# attach(breast_cancer_train)
+#a. Worst-case model:
+#Calculate the proportion of the Classification = 0 & that of Classification == 1
+p0 <- length(Classification[Classification==0])/length(Classification)
+p1 <- length(Classification[Classification==1])/length(Classification)
+
+#Calculate AIC for the worst case model
+#this is the log-likehood of the worst case model
+log1 <- log(p1^Classification*p0^(1-Classification))
+AIC1 <- -2 * (sum(log1) - 1)
+AIC1
+```
+
+## Baseline model (full model without interactions)
+
+```{r, echo=TRUE}
+full_model <- glm(Classification ~ ., data = train_data, family = binomial(link = "logit"))
+summary(full_model)
+vif(full_model)
+```
+
+## Model without collinearity (Edward's version)
+
+```{r, echo=TRUE}
+model2 <- glm(Classification ~ Age + BMI + Glucose + Leptin + Adiponectin + Resistin + MCP.1, 
+              data = train_data, 
+              family = binomial(link = "logit"))
+summary(model2)
+vif(model2)
+```
+
+## Variables selection
+
+###. Insulin v. HOMA and Glucose v. HOMA are collinear
+
+Insulin & HOMA pair and Glucose & HOMA pair  have very high correlations. This information suggests collinearity in these two pairs. In reality, this is true. HOMA is a method used to quantify Insulin resistance and beta-cell function. In this sense, HOMA is a direct function of Glucose and Insulin (source: https://en.wikipedia.org/wiki/Homeostatic_model_assessment). Thus, we can disregard HOMA when fitting the data.
+
+```{r, echo=TRUE}
+model_without_homa <- glm(Classification ~ Age + BMI + Glucose + Insulin + Leptin + Adiponectin + Resistin + MCP.1, 
+                          data = train_data, 
+                          family = binomial(link = "logit"))
+summary(model_without_homa)
+vif(model_without_homa)
+```
+
+Our AIC is smaller after removing HOMA so we have ground to remove it when fitting the data.
+
+### Glucose & Insulin is collinear
+
+Insulin is the hormone that metabolizes Glucose. This information along with the correlation between Glucose & Insulin suggest that there is a functional relationship between them.
+
+```{r, echo=TRUE}
+model_without_glucose <- glm(Classification ~ Age + BMI + Insulin + Leptin + HOMA + Adiponectin + Resistin + MCP.1,
+                             data=train_data,
+                             family = binomial(link = "logit"))
+summary(model_without_glucose)
+vif(model_without_glucose)
+```
+
+```{r, echo=TRUE}
+model_without_insulin <- glm(Classification ~ Age + BMI + Glucose + Leptin + HOMA + Adiponectin + Resistin + MCP.1,
+                             data=train_data,
+                             family = binomial(link = "logit"))
+summary(model_without_insulin)
+vif(model_without_insulin)
+```
+
+The AIC increases when we remove Glucose but decreases when we remove Insulin. Thus, we should consider removing Insulin when fitting the data.
+
+### Leptin & BMI might represent duplicated info
+
+We can also see that the correlation between Leptin & BMI is decently high. Leptin is a hormone your body releases that helps it regulate fat storage (source: https://en.wikipedia.org/wiki/Leptin). A lack in Leptin leads to overweight/obesity in most cases. However, unlike the relationship between HOMA and Insulin/Glucose, BMI is not a direct function of Leptin due to other factors (e.g. a person with low Leptin could exercise a lot, etc.). Though, Leptin and BMI might be representing the same aspect here in our data, which is physical fitness (weight/body fat/obesity/etc.). Thus, we should examine models without Leptin or BMI.
+
+```{r, echo=TRUE}
+model_without_bmi <- glm(Classification ~ Age + Glucose + Insulin + HOMA + Leptin + Adiponectin + Resistin + MCP.1,
+                         data=train_data,
+                         family = binomial(link = "logit"))
+summary(model_without_bmi)
+vif(model_without_bmi)
+```
+
+```{r, echo=TRUE}
+model_without_leptin <- glm(Classification ~ Age + Glucose + Insulin + HOMA + BMI + Adiponectin + Resistin + MCP.1,
+                         data=train_data,
+                         family = binomial(link = "logit"))
+summary(model_without_leptin)
+vif(model_without_leptin)
+```
+
+The AIC increases when removing BMI but decreases when removing Leptin. Thus, we should consider removing Leptin when fitting the data.
+
+### Final variables selection
+
+```{r, echo=TRUE}
+model_with_selected_vars <- glm(Classification ~ Age + Glucose + BMI + Adiponectin + Resistin + MCP.1,
+                                data=train_data,
+                                family = binomial(link = "logit"))
+summary(model_with_selected_vars)
+vif(model_with_selected_vars)
+```
+
+## Interaction terms selection
+
+After possible removals of HOMA, Insulin, and Leptin, we have the remaining 6 variables, which are Age, Glucose, BMI, Adiponectin, Resistin, and MCP.1. We will now proceed to exploring the interactions between them.
+
+### Age interacts with remaining explanatory variables
+
+It is safe to assume that a person gets more prone to adverse effects of irregular biological indicators as they get older. So we might want to add interaction terms between Age and Glucose/BMI/Adiponectin/Resistin/MCP.1
+
+```{r, echo=TRUE}
+model_with_age_interactions <- glm(Classification ~ Age*Glucose + Age*BMI + Age*Adiponectin + Age*Resistin + Age*MCP.1,
+                                      data=train_data,
+                                      family = binomial(link = "logit"))
+summary(model_with_age_interactions)
+vif(model_with_age_interactions)
+```
+
+The AIC decreases as we let Age interacts with Glucose, BMI, Adiponectin, Resistin, and MCP.1. Thus, we should consider adding these interaction terms when fitting the data.
+
+### Adiponectin interacts with BMI and Glucose
+
+By definition, Adiponectin is a protein hormone and adipokine that is involved in the process of regulating glucose and fatty acid breakdown (source: https://en.wikipedia.org/wiki/Adiponectin). Thus, we want to explore how Adiponectin interacts with BMI and Glucose.
+
+```{r, echo=TRUE}
+model_with_adiponectin_interactions <- glm(Classification ~ Age + Resistin + MCP.1 + Adiponectin*BMI + Adiponectin*Glucose,
+                                           data=train_data,
+                                           family = binomial(link = "logit"))
+summary(model_with_adiponectin_interactions)
+vif(model_with_adiponectin_interactions)
+```
+
+The AIC decreases as we let Adiponectin interacts with Glucose, BMI. Thus, we should consider adding these interaction terms when fitting the data.
+
+### Resistin interacts with BMI and Glucose
+
+It is theorized that Resistin links obesity to diabetes (source: https://en.wikipedia.org/wiki/Resistin). Thus, it might be worth it to explore how Resistin interacts with BMI and Glucose.
+
+```{r, echo=TRUE}
+model_with_resistin_interactions <- glm(Classification ~ Age + Adiponectin + MCP.1 + Resistin*BMI + Resistin*Glucose,
+                                        data=train_data,
+                                        family = binomial(link = "logit"))
+summary(model_with_resistin_interactions)
+vif(model_with_resistin_interactions)
+```
+
+The AIC decreases as we let Resistin interacts with Glucose, BMI. Thus, we should consider adding these interaction terms when fitting the data.
+
+## Best model fitted manually
+
+```{r, echo=TRUE}
+manual_best_model <- glm(Classification ~ Age*Glucose + Age*BMI + Age*Adiponectin + Age*Resistin + Age*MCP.1 + Adiponectin*BMI + Adiponectin*Glucose + Resistin*BMI + Resistin*Glucose,
+                         data=train_data,
+                         family = binomial(link = "logit"))
+
+summary(manual_best_model)
+vif(manual_best_model)
+```
+
+```{r, echo=TRUE}
+#Reporting the result in terms of confusion matrix:
+cut_off <- 0.5
+predicted_y <- predict(manual_best_model, newdata = test_data, type = "response")
+class_1 <- as.integer(predicted_y > cut_off)
+confusion_matrix <- confusionMatrix(
+  data = as.factor(class_1),
+  reference = as.factor(test_data$Classification),
+  positive = "1") # Y = 1 is the correct prediction
+
+confusion_matrix
+```
+
+```{r, echo=TRUE}
+#In terms of AUC:
+ROC_full_log <- roc(
+  response = test_data$Classification,
+  predictor = predicted_y
+)
+plot(ROC_full_log,
+     print.auc = TRUE, col = "blue", lwd = 3, lty = 2,
+     main = "ROC curve"
+)
+```
+
+## Exhaustive model selection using BestGlm method
+
+```{r, echo=TRUE}
+#Because the response should be renamed as y, we rename the classification column
+input <- subset(train_data, select = -c(Insulin, HOMA))
+names(input)[names(input) == "Classification"] <- "y"
+res.bestglm <-
+  bestglm(Xy = input,
+          family = binomial(link = "logit"),
+          IC = "AIC",                 # Information criteria for
+          method = "exhaustive")
+
+res.bestglm$BestModels
+
+summary(res.bestglm$BestModel)
+
+
+#Reporting the result in terms of confusion matrix:
+model3 <- res.bestglm$BestModel
+cut_off <- 0.5
+predicted_y <- predict(model3, newdata = test_data, type = "response")
+class_1 <- as.integer(predicted_y > cut_off)
+confusion_matrix <- confusionMatrix(
+  data = as.factor(class_1),
+  reference = as.factor(test_data$Classification),
+  positive = "1") # Y = 1 is the correct prediction
+
+confusion_matrix
+
+#In terms of AUC:
+ROC_full_log <- roc(
+  response = test_data$Classification,
+  predictor = predicted_y
+)
+plot(ROC_full_log,
+     print.auc = TRUE, col = "blue", lwd = 3, lty = 2,
+     main = "ROC curve"
+)
+```
+
+## Using glmulti to get the best model (including models with interactions) [TODO]
+
+```{r, echo=TRUE}
+# glmulti.logistic.out <- glmulti(Classification ~ ., data=train_data,
+#                                 level=2,
+#                                 method="h",
+#                                 crit="aic",
+#                                 confsetsize="10",
+#                                 plotty=FALSE,
+#                                 report=FALSE,
+#                                 fitfunction="glm",
+#                                 family=binomial(link = "logit"))
+# 
+# glmulti.logistic.out@formulas
+# 
+# summary(glmulti.logistic.out@objects[[1]])
+```
