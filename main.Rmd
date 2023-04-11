@@ -1,5 +1,5 @@
 ---
-title: "Analyzing and Fitting Breast Cancer Coimbra Data Set"
+title: "Logistic Regression Analysis of Breast Cancer Coimbra Data Set"
 author: "Andrew Tran, Edward Wang"
 date: "`r Sys.Date()`"
 output:
@@ -23,7 +23,7 @@ library(glmulti)
 
 # Load and transform the data
 
-```{r, echo=TRUE}
+```{r}
 # Read data from csv file 
 bccdat <- read.csv("breast-cancer-coimbra-data-set.csv")
 
@@ -38,7 +38,7 @@ test_data <- anti_join(bccdat, train_data)
 
 # Summary statistics of the training data
 
-```{r, echo=TRUE}
+```{r}
 attach(train_data)  # using summary(variable_name), sd(variable_name) to obtain the needed Statistics
 ```
 
@@ -46,7 +46,7 @@ attach(train_data)  # using summary(variable_name), sd(variable_name) to obtain 
 
 ### Age
 
-```{r, echo=TRUE}
+```{r}
 hist <- hist(Age, main="histogram of Age", plot=FALSE)
 multiplier <- hist$counts / hist$density
 density <- density(Age)
@@ -59,7 +59,7 @@ boxplot(Age, main="Boxplot of Age")
 
 ### BMI
 
-```{r, echo=TRUE}
+```{r}
 hist <- hist(BMI, main="histogram of BMI", plot=FALSE)
 multiplier <- hist$counts / hist$density
 density <- density(BMI)
@@ -72,7 +72,7 @@ boxplot(BMI, main="Boxplot of BMI")
 
 ### Glucose
 
-```{r, echo=TRUE}
+```{r}
 hist <- hist(Glucose , main="histogram of Glucose", plot=FALSE)
 multiplier <- hist$counts / hist$density
 density <- density(Glucose )
@@ -85,7 +85,7 @@ boxplot(Glucose, main="Boxplot of Glucose")
 
 ### Insulin
 
-```{r, echo=TRUE}
+```{r}
 hist <- hist(Insulin , main="histogram of Insulin", plot=FALSE)
 multiplier <- hist$counts / hist$density
 density <- density(Insulin )
@@ -98,7 +98,7 @@ boxplot(Insulin, main="Boxplot of Insulin")
 
 ### HOMA
 
-```{r, echo=TRUE}
+```{r}
 hist <- hist(HOMA , main="histogram of HOMA", plot=FALSE)
 multiplier <- hist$counts / hist$density
 density <- density(HOMA )
@@ -111,7 +111,7 @@ boxplot(HOMA, main="Boxplot of HOMA")
 
 ### Leptin 
 
-```{r, echo=TRUE}
+```{r}
 hist <- hist(Leptin  , main="histogram of Leptin", plot=FALSE)
 multiplier <- hist$counts / hist$density
 density <- density(Leptin )
@@ -124,7 +124,7 @@ boxplot(Leptin, main="Boxplot of Leptin")
 
 ### Adiponectin 
 
-```{r, echo=TRUE}
+```{r}
 hist <- hist(Adiponectin, main="histogram of Adiponectin", plot=FALSE)
 multiplier <- hist$counts / hist$density
 density <- density(Adiponectin)
@@ -137,7 +137,7 @@ boxplot(Adiponectin, main="Boxplot of Adiponectin")
 
 ### Resistin  
 
-```{r, echo=TRUE}
+```{r}
 hist <- hist(Resistin, main="histogram of Resistin", plot=FALSE)
 multiplier <- hist$counts / hist$density
 density <- density(Resistin)
@@ -150,7 +150,7 @@ boxplot(Resistin, main="Boxplot of Resistin")
 
 ### MCP-1  
 
-```{r, echo=TRUE}
+```{r}
 hist <- hist(MCP.1, main="histogram of MCP-1", plot=FALSE)
 multiplier <- hist$counts / hist$density
 density <- density(MCP.1)
@@ -163,15 +163,15 @@ boxplot(MCP.1, main="Boxplot of MCP-1")
 
 ## Correlation visualization
 
-```{r, echo=TRUE}
+```{r}
 # Deselect the response variable
 train_expl_data <- train_data[,!names(train_data) %in% c("Classification")]
 ```
 
 ### Heat map
 
-```{r, echo=TRUE}
-# obtain the Correlation matrix
+```{r}
+# obtain the correlation matrix
 cor_mat <- train_expl_data %>%
            cor() %>%
            as.data.frame() %>%
@@ -209,7 +209,7 @@ plot_corr_matrix
 
 ### Correlation paired plots
 
-```{r, echo=TRUE}
+```{r}
 pair_plot <- ggpairs(train_expl_data, 
                      title = "Correlation Paired Plots between Explanatory Variables",
                      progress=FALSE)
@@ -221,15 +221,13 @@ pair_plot
 
 ## Worst-case model
 
-```{r, echo=TRUE}
-# attach(breast_cancer_train)
-#a. Worst-case model:
-#Calculate the proportion of the Classification = 0 & that of Classification == 1
+```{r}
+# calculate the proportion of the Classification = 0 & that of Classification == 1
 p0 <- length(Classification[Classification==0])/length(Classification)
 p1 <- length(Classification[Classification==1])/length(Classification)
 
-#Calculate AIC for the worst case model
-#this is the log-likehood of the worst case model
+# calculate AIC for the worst case model
+# this is the log-likelihood of the worst case model
 log1 <- log(p1^Classification*p0^(1-Classification))
 AIC1 <- -2 * (sum(log1) - 1)
 AIC1
@@ -237,20 +235,10 @@ AIC1
 
 ## Baseline model (full model without interactions)
 
-```{r, echo=TRUE}
-full_model <- glm(Classification ~ ., data = train_data, family = binomial(link = "logit"))
+```{r}
+full_model <- glm(Classification ~ ., data=train_data, family=binomial(link="logit"))
 summary(full_model)
 vif(full_model)
-```
-
-## Model without collinearity (Edward's version)
-
-```{r, echo=TRUE}
-model2 <- glm(Classification ~ Age + BMI + Glucose + Leptin + Adiponectin + Resistin + MCP.1, 
-              data = train_data, 
-              family = binomial(link = "logit"))
-summary(model2)
-vif(model2)
 ```
 
 ## Variables selection
@@ -259,10 +247,10 @@ vif(model2)
 
 Insulin & HOMA pair and Glucose & HOMA pair  have very high correlations. This information suggests collinearity in these two pairs. In reality, this is true. HOMA is a method used to quantify Insulin resistance and beta-cell function. In this sense, HOMA is a direct function of Glucose and Insulin (source: https://en.wikipedia.org/wiki/Homeostatic_model_assessment). Thus, we can disregard HOMA when fitting the data.
 
-```{r, echo=TRUE}
+```{r}
 model_without_homa <- glm(Classification ~ Age + BMI + Glucose + Insulin + Leptin + Adiponectin + Resistin + MCP.1, 
-                          data = train_data, 
-                          family = binomial(link = "logit"))
+                          data=train_data, 
+                          family=binomial(link="logit"))
 summary(model_without_homa)
 vif(model_without_homa)
 ```
@@ -273,18 +261,18 @@ Our AIC is smaller after removing HOMA so we have ground to remove it when fitti
 
 Insulin is the hormone that metabolizes Glucose. This information along with the correlation between Glucose & Insulin suggest that there is a functional relationship between them.
 
-```{r, echo=TRUE}
+```{r}
 model_without_glucose <- glm(Classification ~ Age + BMI + Insulin + Leptin + HOMA + Adiponectin + Resistin + MCP.1,
                              data=train_data,
-                             family = binomial(link = "logit"))
+                             family=binomial(link="logit"))
 summary(model_without_glucose)
 vif(model_without_glucose)
 ```
 
-```{r, echo=TRUE}
+```{r}
 model_without_insulin <- glm(Classification ~ Age + BMI + Glucose + Leptin + HOMA + Adiponectin + Resistin + MCP.1,
                              data=train_data,
-                             family = binomial(link = "logit"))
+                             family=binomial(link="logit"))
 summary(model_without_insulin)
 vif(model_without_insulin)
 ```
@@ -295,18 +283,18 @@ The AIC increases when we remove Glucose but decreases when we remove Insulin. T
 
 We can also see that the correlation between Leptin & BMI is decently high. Leptin is a hormone your body releases that helps it regulate fat storage (source: https://en.wikipedia.org/wiki/Leptin). A lack in Leptin leads to overweight/obesity in most cases. However, unlike the relationship between HOMA and Insulin/Glucose, BMI is not a direct function of Leptin due to other factors (e.g. a person with low Leptin could exercise a lot, etc.). Though, Leptin and BMI might be representing the same aspect here in our data, which is physical fitness (weight/body fat/obesity/etc.). Thus, we should examine models without Leptin or BMI.
 
-```{r, echo=TRUE}
+```{r}
 model_without_bmi <- glm(Classification ~ Age + Glucose + Insulin + HOMA + Leptin + Adiponectin + Resistin + MCP.1,
                          data=train_data,
-                         family = binomial(link = "logit"))
+                         family=binomial(link="logit"))
 summary(model_without_bmi)
 vif(model_without_bmi)
 ```
 
-```{r, echo=TRUE}
+```{r}
 model_without_leptin <- glm(Classification ~ Age + Glucose + Insulin + HOMA + BMI + Adiponectin + Resistin + MCP.1,
                          data=train_data,
-                         family = binomial(link = "logit"))
+                         family=binomial(link="logit"))
 summary(model_without_leptin)
 vif(model_without_leptin)
 ```
@@ -315,10 +303,10 @@ The AIC increases when removing BMI but decreases when removing Leptin. Thus, we
 
 ### Final variables selection
 
-```{r, echo=TRUE}
+```{r}
 model_with_selected_vars <- glm(Classification ~ Age + Glucose + BMI + Adiponectin + Resistin + MCP.1,
                                 data=train_data,
-                                family = binomial(link = "logit"))
+                                family=binomial(link="logit"))
 summary(model_with_selected_vars)
 vif(model_with_selected_vars)
 ```
@@ -331,10 +319,10 @@ After possible removals of HOMA, Insulin, and Leptin, we have the remaining 6 va
 
 It is safe to assume that a person gets more prone to adverse effects of irregular biological indicators as they get older. So we might want to add interaction terms between Age and Glucose/BMI/Adiponectin/Resistin/MCP.1
 
-```{r, echo=TRUE}
+```{r}
 model_with_age_interactions <- glm(Classification ~ Age*Glucose + Age*BMI + Age*Adiponectin + Age*Resistin + Age*MCP.1,
                                       data=train_data,
-                                      family = binomial(link = "logit"))
+                                      family=binomial(link="logit"))
 summary(model_with_age_interactions)
 vif(model_with_age_interactions)
 ```
@@ -345,10 +333,10 @@ The AIC decreases as we let Age interacts with Glucose, BMI, Adiponectin, Resist
 
 By definition, Adiponectin is a protein hormone and adipokine that is involved in the process of regulating glucose and fatty acid breakdown (source: https://en.wikipedia.org/wiki/Adiponectin). Thus, we want to explore how Adiponectin interacts with BMI and Glucose.
 
-```{r, echo=TRUE}
+```{r}
 model_with_adiponectin_interactions <- glm(Classification ~ Age + Resistin + MCP.1 + Adiponectin*BMI + Adiponectin*Glucose,
                                            data=train_data,
-                                           family = binomial(link = "logit"))
+                                           family=binomial(link="logit"))
 summary(model_with_adiponectin_interactions)
 vif(model_with_adiponectin_interactions)
 ```
@@ -359,10 +347,10 @@ The AIC decreases as we let Adiponectin interacts with Glucose, BMI. Thus, we sh
 
 It is theorized that Resistin links obesity to diabetes (source: https://en.wikipedia.org/wiki/Resistin). Thus, it might be worth it to explore how Resistin interacts with BMI and Glucose.
 
-```{r, echo=TRUE}
+```{r}
 model_with_resistin_interactions <- glm(Classification ~ Age + Adiponectin + MCP.1 + Resistin*BMI + Resistin*Glucose,
                                         data=train_data,
-                                        family = binomial(link = "logit"))
+                                        family=binomial(link="logit"))
 summary(model_with_resistin_interactions)
 vif(model_with_resistin_interactions)
 ```
@@ -371,94 +359,220 @@ The AIC decreases as we let Resistin interacts with Glucose, BMI. Thus, we shoul
 
 ## Best model fitted manually
 
-```{r, echo=TRUE}
+```{r}
 manual_best_model <- glm(Classification ~ Age*Glucose + Age*BMI + Age*Adiponectin + Age*Resistin + Age*MCP.1 + Adiponectin*BMI + Adiponectin*Glucose + Resistin*BMI + Resistin*Glucose,
                          data=train_data,
-                         family = binomial(link = "logit"))
-
+                         family=binomial(link="logit"))
 summary(manual_best_model)
 vif(manual_best_model)
 ```
 
-```{r, echo=TRUE}
-#Reporting the result in terms of confusion matrix:
-cut_off <- 0.5
-predicted_y <- predict(manual_best_model, newdata = test_data, type = "response")
-class_1 <- as.integer(predicted_y > cut_off)
-confusion_matrix <- confusionMatrix(
-  data = as.factor(class_1),
-  reference = as.factor(test_data$Classification),
-  positive = "1") # Y = 1 is the correct prediction
-
-confusion_matrix
+```{r}
+manual_best_model.pred <- predict(manual_best_model, newdata=test_data, type="response")
 ```
 
-```{r, echo=TRUE}
-#In terms of AUC:
-ROC_full_log <- roc(
-  response = test_data$Classification,
-  predictor = predicted_y
-)
-plot(ROC_full_log,
-     print.auc = TRUE, col = "blue", lwd = 3, lty = 2,
-     main = "ROC curve"
-)
+### Confusion matrix
+
+```{r}
+cut_off <- 0.5
+manual_best_model.classified_pred <- as.integer(manual_best_model.pred > cut_off)
+confusionMatrix(data=as.factor(manual_best_model.classified_pred),
+                reference=as.factor(test_data$Classification),
+                positive="1")
+```
+
+### ROC Curve and AUC
+
+```{r}
+manual_best_model.roc_curve <- roc(response=test_data$Classification,
+                                   predictor=manual_best_model.pred)
+plot(manual_best_model.roc_curve,
+     print.auc=TRUE, col="blue", lwd=3, lty=2,
+     main="ROC Curve of best model fitted manually")
 ```
 
 ## Exhaustive model selection using BestGlm method
 
-```{r, echo=TRUE}
-#Because the response should be renamed as y, we rename the classification column
-input <- subset(train_data, select = -c(Insulin, HOMA))
-names(input)[names(input) == "Classification"] <- "y"
-res.bestglm <-
-  bestglm(Xy = input,
-          family = binomial(link = "logit"),
-          IC = "AIC",                 # Information criteria for
-          method = "exhaustive")
-
-res.bestglm$BestModels
-
-summary(res.bestglm$BestModel)
-
-
-#Reporting the result in terms of confusion matrix:
-model3 <- res.bestglm$BestModel
-cut_off <- 0.5
-predicted_y <- predict(model3, newdata = test_data, type = "response")
-class_1 <- as.integer(predicted_y > cut_off)
-confusion_matrix <- confusionMatrix(
-  data = as.factor(class_1),
-  reference = as.factor(test_data$Classification),
-  positive = "1") # Y = 1 is the correct prediction
-
-confusion_matrix
-
-#In terms of AUC:
-ROC_full_log <- roc(
-  response = test_data$Classification,
-  predictor = predicted_y
-)
-plot(ROC_full_log,
-     print.auc = TRUE, col = "blue", lwd = 3, lty = 2,
-     main = "ROC curve"
-)
+```{r}
+train_Xy <- subset(train_data, select=-c(Insulin, HOMA, Leptin))
+names(train_Xy)[names(train_Xy) == "Classification"] <- "y"
+bestglm_best_model <- bestglm(Xy=train_Xy,
+                       family=binomial(link="logit"),
+                       IC="AIC",
+                       method="exhaustive")$BestModel
+summary(bestglm_best_model)
+vif(bestglm_best_model)
 ```
 
-## Using glmulti to get the best model (including models with interactions) [TODO]
+```{r}
+bestglm_best_model.pred <- predict(bestglm_best_model, newdata=test_data, type="response")
+```
 
-```{r, echo=TRUE}
-# glmulti.logistic.out <- glmulti(Classification ~ ., data=train_data,
-#                                 level=2,
-#                                 method="h",
-#                                 crit="aic",
-#                                 confsetsize="10",
-#                                 plotty=FALSE,
-#                                 report=FALSE,
-#                                 fitfunction="glm",
-#                                 family=binomial(link = "logit"))
-# 
-# glmulti.logistic.out@formulas
-# 
-# summary(glmulti.logistic.out@objects[[1]])
+### Confusion matrix
+
+```{r}
+cut_off <- 0.5
+bestglm_best_model.classified_pred <- as.integer(bestglm_best_model.pred > cut_off)
+confusionMatrix(data=as.factor(bestglm_best_model.classified_pred),
+                reference=as.factor(test_data$Classification),
+                positive="1")
+```
+
+### ROC Curve and AUC
+
+```{r}
+bestglm_best_model.roc_curve <- roc(response=test_data$Classification,
+                                    predictor=bestglm_best_model.pred)
+plot(bestglm_best_model.roc_curve,
+     print.auc=TRUE, col="blue", lwd=3, lty=2,
+     main="ROC Curve of bestglm best model")
+```
+
+## Best model with interactions using glmulti
+
+```{r}
+glmulti_best_model <- glmulti("Classification", 
+                              c("Age", "Glucose", "BMI", "Adiponectin", "Resistin", "MCP.1"), 
+                              data=train_data,
+                              level=2,
+                              method="h",
+                              crit="aic",
+                              confsetsize=6,
+                              plotty=FALSE,
+                              report=FALSE,
+                              fitfunction="glm",
+                              family=binomial(link="logit"))@objects[[1]]
+summary(glmulti_best_model)
+vif(glmulti_best_model)
+```
+
+```{r}
+glmulti_best_model.pred <- predict(glmulti_best_model, newdata=test_data, type="response")
+```
+
+### Confusion matrix
+
+```{r}
+cut_off <- 0.5
+glmulti_best_model.classified_pred <- as.integer(glmulti_best_model.pred > cut_off)
+confusionMatrix(data=as.factor(glmulti_best_model.classified_pred),
+                reference=as.factor(test_data$Classification),
+                positive="1")
+```
+
+### ROC Curve and AUC
+
+```{r}
+glmulti_best_model.roc_curve <- roc(response=test_data$Classification,
+                                    predictor=glmulti_best_model.pred)
+plot(glmulti_best_model.roc_curve,
+     print.auc=TRUE, col="blue", lwd=3, lty=2,
+     main="ROC Curve of glmulti best model")
+```
+
+## Comparisons between best model fitted manually, by bestglm, and by glmulti
+
+### Worst performing best model
+
+In terms of AIC and AUC, best model fitted by bestglm has the worst performance (AIC=100.06, AUC=0.736). It should also be noted that this model does not include any interaction terms. Thus, it is reasonable to make an assumption that good candidate models should include some interactions between explanatory variables.
+
+### Manual fitting v. glmulti
+
+In terms of AIC, best model fitted by glmulti performs better than the one fitted manually.
+
+In terms of accuracy and AUC, best model fitted manually performs better than the one fitted by glmulti.
+
+## Cross-validation
+
+```{r}
+set.seed(268)
+fold1 <- slice_sample(bccdat, prop = 0.25)
+fold2 <- slice_sample(anti_join(bccdat, fold1), prop = 1/3) 
+fold3 <- slice_sample(anti_join(bccdat, bind_rows(fold1, fold2)), prop = 1/2)
+fold4 <- anti_join(bccdat, bind_rows(fold1, fold2, fold3))
+folds <- list(fold1, fold2, fold3, fold4)
+```
+
+```{r}
+cv_results.accuracies <- data.frame(manual_best_model.accuracies=c(), glmulti_best_model.accuracies=c())
+cv_results.aucs <- data.frame(manual_best_model.aucs=c(), glmulti_best_model.aucs=c())
+```
+
+```{r}
+local({
+  for (i in 1:4) {
+    cvsplit_i.train_data <- anti_join(bccdat, folds[[i]])
+    cvsplit_i.test_data <- folds[[i]]
+    
+    cut_off <- 0.5
+    
+    cvsplit_i.manual_best_model <- glm(formula=manual_best_model$formula,
+                                       data=cvsplit_i.train_data,
+                                       family=binomial(link="logit"))
+    cvsplit_i.manual_best_model.pred <- predict(cvsplit_i.manual_best_model, 
+                                                newdata=cvsplit_i.test_data, 
+                                                type="response")
+    # accuracy of manual best model at split i
+    cvsplit_i.manual_best_model.classified_pred <- 
+      as.integer(cvsplit_i.manual_best_model.pred > cut_off)
+    cvsplit_i.manual_best_model.accuracy <- 
+      confusionMatrix(data=as.factor(cvsplit_i.manual_best_model.classified_pred),
+                      reference=as.factor(cvsplit_i.test_data$Classification),
+                      positive="1")$overall[[1]]
+    # auc of manual best model at split i
+    cvsplit_i.manual_best_model.roc_curve <- 
+      roc(response=cvsplit_i.test_data$Classification,
+          predictor=cvsplit_i.manual_best_model.pred)
+    
+    
+    cvsplit_i.glmulti_best_model <- glm(formula=glmulti_best_model$formula,
+                                        data=cvsplit_i.train_data,
+                                        family=binomial(link="logit"))
+    cvsplit_i.glmulti_best_model.pred <- predict(cvsplit_i.glmulti_best_model, 
+                                                 newdata=cvsplit_i.test_data, 
+                                                 type="response")
+    # accuracy of glmulti best model at split i
+    cvsplit_i.glmulti_best_model.classified_pred <- 
+      as.integer(cvsplit_i.glmulti_best_model.pred > cut_off)
+    cvsplit_i.glmulti_best_model.accuracy <- 
+      confusionMatrix(data=as.factor(cvsplit_i.glmulti_best_model.classified_pred),
+                      reference=as.factor(cvsplit_i.test_data$Classification),
+                      positive="1")$overall[[1]]
+    # auc of glmulti best model at split i
+    cvsplit_i.glmulti_best_model.roc_curve <- 
+      roc(response=cvsplit_i.test_data$Classification,
+          predictor=cvsplit_i.glmulti_best_model.pred)
+    
+    cvsplit_i.result.accuracies <- 
+      data.frame(manual_best_model.accuracies=c(cvsplit_i.manual_best_model.accuracy),
+                 glmulti_best_model.accuracies=c(cvsplit_i.glmulti_best_model.accuracy))
+    cv_results.accuracies <<- bind_rows(cv_results.accuracies, cvsplit_i.result.accuracies)
+    
+    cvsplit_i.result.aucs <- 
+      data.frame(manual_best_model.aucs=c(cvsplit_i.manual_best_model.roc_curve$auc),
+                 glmulti_best_model.aucs=c(cvsplit_i.glmulti_best_model.roc_curve$auc))
+    cv_results.aucs <<- bind_rows(cv_results.aucs, cvsplit_i.result.aucs)
+  }
+})
+```
+
+```{r}
+colnames(cv_results.accuracies) <- c("Best model fitted manually", "Best model fitted by glmulti")
+row.names(cv_results.accuracies) <- c("Accuracy of fold1", "Accuracy of fold2", "Accuracy of fold3", "Accuracy of fold4")
+knitr::kable((cv_results.accuracies), format = "simple", digits = 3)
+```
+
+```{r}
+colnames(cv_results.aucs) <- c("Best model fitted manually", "Best model fitted by glmulti")
+row.names(cv_results.aucs) <- c("AUC of fold1", "AUC of fold2", "AUC of fold3", "AUC of fold4")
+knitr::kable((cv_results.aucs), format = "simple", digits = 3)
+```
+
+## Result
+
+As we can see from our cross-validation results, the performance differentials between the best models fitted manually and by glmulti are pretty even. Best model fitted manually offers better interpretability, whereas best model fitted by glmulti is smaller in size. Based on personal preference, I'm choosing the best model fitted manually as the main logistic regression for the Breast Cancer Coimbra data set.
+
+```{r}
+main_model <- manual_best_model
+summary(main_model)
 ```
